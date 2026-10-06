@@ -272,19 +272,20 @@ class DockerAudit:
             return
         update_fix = ("# Mettre à jour l'image puis redémarrer le conteneur\n"
                       "docker pull %s\ndocker compose up -d   # ou : docker compose pull && docker compose up -d" % ref)
-        for sev, label in ((CRIT, "critiques"), (HIGH, "élevées"), (MED, "moyennes")):
+        for sev, plural_adj, sing_adj in ((CRIT, "critiques", "critique"), (HIGH, "élevées", "élevée"), (MED, "moyennes", "moyenne")):
             n, nf = counts[sev], fixable[sev]
             if n == 0:
-                self.check("Vulnérabilités %s" % label, True, sev, "Aucune vulnérabilité %s dans %s%s." % (label, ref, ctx))
+                self.check("Vulnérabilités %s" % plural_adj, True, sev, "Aucune vulnérabilité %s dans %s%s." % (sing_adj, ref, ctx))
                 continue
             ex = [c for c in cves if c["sev"] == sev][:4]
             ex_txt = " ; ".join("%s (%s)" % (c["id"], c["pkg"]) for c in ex)
-            detail = "%d vulnérabilité(s) %s dans %s%s, dont %d corrigeable(s) par mise à jour. Ex. : %s." % (
-                n, label, ref, ctx, nf, ex_txt)
+            detail = "%d vulnérabilité%s %s dans %s%s, dont %d corrigeable%s par mise à jour. Ex. : %s." % (
+                n, "s" if n > 1 else "", plural_adj if n > 1 else sing_adj, ref, ctx,
+                nf, "s" if nf > 1 else "", ex_txt)
             reco = ("Mettez à jour cette image : %d de ces failles sont corrigées dans une version plus récente." % nf) if nf \
                 else ("Aucune correction n'est encore disponible pour ces failles %s ; surveillez les mises à jour, "
-                      "envisagez une autre image de base ou des mesures de limitation." % label)
-            self.check("Vulnérabilités %s" % label, False, sev, detail, reco, update_fix if nf else "")
+                      "envisagez une autre image de base ou des mesures de limitation." % plural_adj)
+            self.check("Vulnérabilités %s" % plural_adj, False, sev, detail, reco, update_fix if nf else "")
         if secrets:
             self.check("Secrets détectés dans l'image", False, CRIT,
                        "%d secret(s) potentiel(s) détecté(s) : %s." % (len(secrets), shorten(["%s (%s)" % (s["rule"], s["target"]) for s in secrets], 6)),
