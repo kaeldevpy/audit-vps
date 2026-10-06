@@ -1,0 +1,10 @@
+# Rapports générés (contiennent des informations sensibles sur le serveur)
+audit-*.pdf
+audit-*.html
+audit-*.json
+*.pdf
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
