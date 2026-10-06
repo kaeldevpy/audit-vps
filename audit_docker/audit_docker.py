@@ -667,6 +667,70 @@ def build_html(a, path):
 
 # --------------------------------------------------------------------------- main
 
+TRIVY_KEY_URL = "https://aquasecurity.github.io/trivy-repo/deb/public.key"
+TRIVY_KEYRING = "/usr/share/keyrings/trivy.gpg"
+TRIVY_SOURCE = "/etc/apt/sources.list.d/trivy.list"
+TRIVY_DEB_LINE = "deb [signed-by=%s] https://aquasecurity.github.io/trivy-repo/deb generic main" % TRIVY_KEYRING
+
+
+def _is_root():
+    return getattr(os, "geteuid", lambda: 1)() == 0
+
+
+def manual_trivy_help():
+    log("    Installez Trivy manuellement : https://trivy.dev/latest/getting-started/installation/", "gray")
+    log("    Sur Ubuntu/Debian :", "gray")
+    log("      sudo apt-get install -y wget gnupg", "gray")
+    log("      wget -qO - %s | gpg --dearmor | sudo tee %s >/dev/null" % (TRIVY_KEY_URL, TRIVY_KEYRING), "gray")
+    log("      echo \"%s\" | sudo tee %s" % (TRIVY_DEB_LINE, TRIVY_SOURCE), "gray")
+    log("      sudo apt-get update && sudo apt-get install -y trivy", "gray")
+
+
+def install_trivy():
+    """Installe Trivy via le dépôt apt officiel (clé GPG signée). Renvoie True si réussi."""
+    if not has("apt-get"):
+        log("[!] Installation automatique non supportée ici (apt introuvable).", "red")
+        manual_trivy_help()
+        return False
+    if not _is_root():
+        log("[!] L'installation de Trivy nécessite les droits root. Relancez avec sudo, ou installez-le vous-même :", "red")
+        manual_trivy_help()
+        return False
+    if not has("gpg"):
+        log("    installation de gnupg...", "gray")
+        run(["apt-get", "install", "-y", "-qq", "gnupg", "ca-certificates"], 300)
+    log("[*] Installation de Trivy via le dépôt apt officiel d'Aqua Security...", "blue")
+    try:
+        import urllib.request
+        log("    téléchargement de la clé de signature...", "gray")
+        with urllib.request.urlopen(TRIVY_KEY_URL, timeout=30) as r:
+            key = r.read()
+        if not key:
+            raise ValueError("clé vide")
+        p = subprocess.run(["gpg", "--dearmor"], input=key, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+        if p.returncode != 0 or not p.stdout:
+            raise ValueError("gpg --dearmor a échoué : %s" % p.stderr.decode("utf-8", "replace")[:200])
+        with open(TRIVY_KEYRING, "wb") as f:
+            f.write(p.stdout)
+        os.chmod(TRIVY_KEYRING, 0o644)
+        with open(TRIVY_SOURCE, "w", encoding="utf-8") as f:
+            f.write(TRIVY_DEB_LINE + "\n")
+    except Exception as e:  # noqa: BLE001
+        log("[!] Échec de la préparation du dépôt : %s" % e, "red")
+        manual_trivy_help()
+        return False
+    log("    apt-get update...", "gray")
+    rc, _, e1 = run(["apt-get", "update", "-qq"], 300)
+    log("    installation du paquet trivy...", "gray")
+    rc, _, e2 = run(["apt-get", "install", "-y", "-qq", "trivy"], 600)
+    if not has("trivy"):
+        log("[!] L'installation de Trivy a échoué : %s" % ((e2 or e1).strip()[-200:] or "erreur inconnue"), "red")
+        manual_trivy_help()
+        return False
+    log("[*] Trivy installé.", "green")
+    return True
+
+
 def ensure_reportlab():
     try:
         import reportlab  # noqa: F401
@@ -684,20 +748,31 @@ def main():
     p.add_argument("--all", action="store_true", help="inclure les conteneurs arrêtés (docker ps -a)")
     p.add_argument("--secrets", action="store_true", help="chercher aussi des secrets intégrés dans les images")
     p.add_argument("--timeout", type=int, default=10, help="délai max par image, en minutes (défaut : 10)")
+    p.add_argument("--install-trivy", action="store_true", help="installer Trivy via le dépôt apt officiel s'il est absent (nécessite root)")
     p.add_argument("--no-db-update", action="store_true", help="ne pas mettre à jour la base de vulnérabilités Trivy")
     p.add_argument("--json", action="store_true", help="exporter aussi les résultats en JSON")
     p.add_argument("--version", action="version", version="audit_docker.py " + VERSION)
     args = p.parse_args()
 
     trivy = Trivy(args)
-    if not trivy.detect():
+    # Installation explicite demandée (--install-trivy), avant la détection.
+    if args.install_trivy and not has("trivy"):
+        install_trivy()
+    ok = trivy.detect()
+    # Sinon, proposer l'installation quand rien n'est utilisable (ni Trivy, ni Docker).
+    if not ok and not args.install_trivy and has("apt-get"):
+        want = False
+        if sys.stdin.isatty():
+            try:
+                want = input("Trivy est introuvable. L'installer via le dépôt apt officiel ? [o/N] ").strip().lower() in ("o", "oui", "y", "yes")
+            except EOFError:
+                want = False
+        if want and install_trivy():
+            ok = trivy.detect()
+    if not ok:
         log("[!] Trivy est introuvable et Docker n'est pas disponible pour l'exécuter.", "red")
-        log("    Installez Trivy : https://trivy.dev/latest/getting-started/installation/", "gray")
-        log("    Sur Ubuntu/Debian :", "gray")
-        log("      sudo apt-get install -y wget gnupg", "gray")
-        log("      wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg >/dev/null", "gray")
-        log("      echo \"deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main\" | sudo tee /etc/apt/sources.list.d/trivy.list", "gray")
-        log("      sudo apt-get update && sudo apt-get install -y trivy", "gray")
+        log("    Relancez avec --install-trivy (en root) pour l'installer automatiquement, ou :", "gray")
+        manual_trivy_help()
         sys.exit(1)
 
     pdf_ok = ensure_reportlab()

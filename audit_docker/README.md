@@ -25,6 +25,7 @@ python3 audit_docker.py --json -o rapport.pdf
 
 | Option | Effet |
 |---|---|
+| `--install-trivy` | Installer Trivy automatiquement via le dépôt apt officiel s'il est absent (nécessite root) |
 | `--all` | Inclure les conteneurs arrêtés (`docker ps -a`) |
 | `--secrets` | Chercher aussi des secrets (mots de passe, clés) intégrés dans les images |
 | `--timeout 10` | Délai maximum par image, en minutes |
@@ -34,7 +35,12 @@ python3 audit_docker.py --json -o rapport.pdf
 
 ## Dépendances
 
-- **Trivy.** S'il est absent mais que **Docker** est présent, le script l'utilise automatiquement via l'image officielle `aquasec/trivy` — aucune installation nécessaire. Pour l'installer en binaire (plus rapide) :
+- **Trivy.** Trois possibilités, par ordre de préférence du script :
+  1. **Trivy est déjà installé** (binaire `trivy`) → utilisé directement.
+  2. **Trivy absent mais Docker présent** → le script l'utilise automatiquement via l'image officielle `aquasec/trivy`, sans rien installer.
+  3. **Ni l'un ni l'autre** → lancez avec `--install-trivy` (en root) et le script l'installe depuis le dépôt apt officiel (clé GPG signée). En mode interactif, il le propose aussi de lui-même.
+
+  Installation manuelle, si vous préférez :
   ```bash
   sudo apt-get install -y wget gnupg
   wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg >/dev/null
