@@ -6,9 +6,10 @@ Collection de scripts pour **auditer la sécurité et la santé d'un VPS** (Ubun
 
 | Script | Description | Où le lancer |
 |---|---|---|
-| [`audit_interne_vps`](audit_interne_vps/) | Audit complet depuis le serveur : système, mises à jour, comptes, SSH, pare-feu, ports exposés, noyau, fichiers, services, web et TLS, bases de données, Docker, sauvegardes, supervision. Génère un **rapport PDF** avec un score, un plan d'action priorisé et un inventaire. | Sur le VPS, en root |
+| [`audit_interne_vps`](audit_interne_vps/) | Audit complet **depuis le serveur** : système, mises à jour, comptes, SSH, pare-feu, ports exposés, noyau, fichiers, services, web et TLS, bases de données, Docker, sauvegardes, supervision. Génère un **rapport PDF** avec un score, un plan d'action priorisé et un inventaire. | Sur le VPS, en root |
+| [`audit_externe_vps`](audit_externe_vps/) | Audit **non intrusif** de la surface d'exposition, **vue depuis Internet** : ports joignables, services sensibles exposés, TLS et certificats, en-têtes HTTP, DNS et messagerie. Génère un **rapport PDF**. | Depuis une autre machine, vers le domaine ou l'IP publique |
 
-D'autres scripts viendront compléter ce dépôt (par exemple un audit externe, lancé depuis une autre machine pour voir le serveur tel qu'Internet le voit).
+Les deux audits sont complémentaires : l'interne voit la configuration réelle des services, l'externe voit ce qui est réellement joignable depuis Internet.
 
 ## Démarrage rapide
 
