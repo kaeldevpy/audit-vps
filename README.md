@@ -8,8 +8,9 @@ Collection de scripts pour **auditer la sécurité et la santé d'un VPS** (Ubun
 |---|---|---|
 | [`audit_interne_vps`](audit_interne_vps/) | Audit complet **depuis le serveur** : système, mises à jour, comptes, SSH, pare-feu, ports exposés, noyau, fichiers, services, web et TLS, bases de données, Docker, sauvegardes, supervision. Génère un **rapport PDF** avec un score, un plan d'action priorisé et un inventaire. | Sur le VPS, en root |
 | [`audit_externe_vps`](audit_externe_vps/) | Audit **non intrusif** de la surface d'exposition, **vue depuis Internet** : ports joignables, services sensibles exposés, TLS et certificats, en-têtes HTTP, DNS et messagerie. Génère un **rapport PDF**. | Depuis une autre machine, vers le domaine ou l'IP publique |
+| [`audit_docker`](audit_docker/) | Audit des **vulnérabilités (CVE) des images Docker**, via Trivy : vulnérabilités par image, lesquelles sont corrigeables, images à mettre à jour en priorité. Génère un **rapport PDF**. | Sur le VPS (ou toute machine avec Trivy/Docker) |
 
-Les deux audits sont complémentaires : l'interne voit la configuration réelle des services, l'externe voit ce qui est réellement joignable depuis Internet.
+Ces audits sont complémentaires : l'interne voit la configuration réelle des services, l'externe voit ce qui est réellement joignable depuis Internet, et l'audit Docker voit les failles connues embarquées dans les images.
 
 ## Démarrage rapide
 
